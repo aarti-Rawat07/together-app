@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://together-backend.onrender.com/api/$1"
+    },
+    {
+      "source": "/static/(.*)",
+      "destination": "https://together-backend.onrender.com/static/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
