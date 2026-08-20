@@ -1,8 +1,9 @@
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import get_settings
 from app.database import engine, Base
@@ -38,10 +39,24 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS configuration
+
+class StaticFilesCORSMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/static"):
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
+
+
+# Add static CORS header middleware
+app.add_middleware(StaticFilesCORSMiddleware)
+
+# CORS configuration with Regex support for Vercel/Netlify/Localhost
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=r"https://.*|http://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
