@@ -1,8 +1,7 @@
 import axios from 'axios';
-import { getApiBaseUrl } from '../config';
 
 const api = axios.create({
-  baseURL: getApiBaseUrl(),
+  baseURL: 'https://together-backend-p53w.onrender.com/api',
   headers: {
     'Content-Type': 'application/json',
   },
