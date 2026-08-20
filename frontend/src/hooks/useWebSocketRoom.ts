@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Message, FloatingReaction, PlaybackState, PresenceStatus } from '../types';
+import { getWebSocketRoomUrl } from '../config';
 
 interface UseWebSocketRoomProps {
   roomUuid: string;
@@ -30,7 +31,6 @@ export const useWebSocketRoom = ({
   const [reactions, setReactions] = useState<FloatingReaction[]>([]);
   const [roomError, setRoomError] = useState<string | null>(null);
 
-  // Keep callback refs fresh
   const onWebRTCMessageRef = useRef(onWebRTCMessage);
   onWebRTCMessageRef.current = onWebRTCMessage;
 
@@ -49,17 +49,7 @@ export const useWebSocketRoom = ({
   const connect = useCallback(() => {
     if (!token || !roomUuid) return;
 
-    // Determine WS URL (ws:// or wss://)
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    
-    // Auto-detect production backend host if hosted on Vercel/Netlify
-    let wsHost = window.location.host;
-    if (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('netlify.app')) {
-      wsHost = 'together-backend.onrender.com'; // Render backend host
-    }
-
-    const wsUrl = `${protocol}//${wsHost}/ws/rooms/${roomUuid}?token=${encodeURIComponent(token)}`;
-
+    const wsUrl = getWebSocketRoomUrl(roomUuid, token);
     const ws = new WebSocket(wsUrl);
     socketRef.current = ws;
 

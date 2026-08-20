@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://together-backend.onrender.com/api/$1"
+      "destination": "https://together-backend-p53w.onrender.com/api/$1"
     },
     {
       "source": "/static/(.*)",
-      "destination": "https://together-backend.onrender.com/static/$1"
+      "destination": "https://together-backend-p53w.onrender.com/static/$1"
     },
     {
       "source": "/(.*)",

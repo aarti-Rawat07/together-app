@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Track, PlaybackState } from '../types';
+import { getStaticBaseUrl } from '../config';
 
 interface UseSynchronizedAudioProps {
   sendMusicPlay: (trackId?: string, position?: number) => void;
@@ -8,6 +9,13 @@ interface UseSynchronizedAudioProps {
   sendMusicChangeTrack: (track: Track) => void;
   sendMusicSyncRequest: () => void;
 }
+
+const resolveAudioUrl = (url?: string): string => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const staticBase = getStaticBaseUrl();
+  return staticBase ? `${staticBase}${url}` : url;
+};
 
 export const useSynchronizedAudio = ({
   sendMusicPlay,
@@ -26,7 +34,6 @@ export const useSynchronizedAudio = ({
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Initialize HTML5 Audio object
   useEffect(() => {
     const audio = new Audio();
     audio.preload = 'auto';
@@ -61,36 +68,33 @@ export const useSynchronizedAudio = ({
     };
   }, []);
 
-  // Periodic drift check request
   useEffect(() => {
     if (!isPlaying) return;
     const interval = setInterval(() => {
       sendMusicSyncRequest();
-    }, 8000); // Check every 8s
+    }, 8000);
     return () => clearInterval(interval);
   }, [isPlaying, sendMusicSyncRequest]);
 
-  // Handle incoming remote music state update
   const handleRemoteStateUpdate = useCallback((playback: PlaybackState) => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    // Update track metadata if different
     if (playback.track_id && (!currentTrack || currentTrack.id !== playback.track_id)) {
+      const trackUrl = resolveAudioUrl(playback.track_url || '/static/music/midnight_serenade.mp3');
       const newTrack: Track = {
         id: playback.track_id,
         title: playback.track_title || 'Together Song',
         artist: playback.track_artist || 'Together Lo-Fi',
-        url: playback.track_url || '/static/music/midnight_serenade.mp3',
+        url: trackUrl,
         cover_url: playback.track_cover_url || '',
         duration: playback.track_duration || 180,
       };
       setCurrentTrack(newTrack);
-      audio.src = newTrack.url;
+      audio.src = trackUrl;
       audio.load();
     }
 
-    // Calculate synchronized target position using server timestamp
     const now = Date.now() / 1000;
     let targetPos = playback.position;
     if (playback.is_playing && playback.server_timestamp > 0) {
@@ -100,16 +104,14 @@ export const useSynchronizedAudio = ({
 
     const drift = Math.abs(audio.currentTime - targetPos);
 
-    // Apply drift correction
     if (drift > 1.2) {
       audio.currentTime = targetPos;
       audio.playbackRate = 1.0;
     } else if (drift > 0.25) {
-      // Subtle speed adjustment without audible jumps
       if (audio.currentTime < targetPos) {
-        audio.playbackRate = 1.05; // Slightly speed up to catch up
+        audio.playbackRate = 1.05;
       } else {
-        audio.playbackRate = 0.95; // Slightly slow down
+        audio.playbackRate = 0.95;
       }
       setTimeout(() => {
         if (audioRef.current) audioRef.current.playbackRate = 1.0;
@@ -119,9 +121,7 @@ export const useSynchronizedAudio = ({
     }
 
     if (playback.is_playing) {
-      audio.play().catch(() => {
-        // Autoplay policy: user interaction required
-      });
+      audio.play().catch(() => {});
       setIsPlaying(true);
     } else {
       audio.pause();
@@ -129,7 +129,6 @@ export const useSynchronizedAudio = ({
     }
   }, [currentTrack, duration]);
 
-  // Handle remote seek
   const handleRemoteSeek = useCallback((position: number, serverTimestamp: number) => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -140,21 +139,21 @@ export const useSynchronizedAudio = ({
     setCurrentTime(position + elapsed);
   }, []);
 
-  // Handle remote track change
   const handleRemoteTrackChange = useCallback((payload: any) => {
     const audio = audioRef.current;
     if (!audio) return;
 
+    const trackUrl = resolveAudioUrl(payload.url);
     const newTrack: Track = {
       id: payload.track_id,
       title: payload.title,
       artist: payload.artist,
-      url: payload.url,
+      url: trackUrl,
       cover_url: payload.cover_url,
       duration: payload.duration,
     };
     setCurrentTrack(newTrack);
-    audio.src = newTrack.url;
+    audio.src = trackUrl;
     audio.currentTime = 0;
 
     if (payload.is_playing) {
@@ -166,7 +165,6 @@ export const useSynchronizedAudio = ({
     }
   }, []);
 
-  // Handle sync response
   const handleRemoteSyncResponse = useCallback((payload: any) => {
     const audio = audioRef.current;
     if (!audio || !payload.is_playing) return;
@@ -182,7 +180,6 @@ export const useSynchronizedAudio = ({
     }
   }, []);
 
-  // User Actions
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -210,12 +207,13 @@ export const useSynchronizedAudio = ({
     const audio = audioRef.current;
     if (!audio) return;
 
-    setCurrentTrack(track);
-    audio.src = track.url;
+    const trackUrl = resolveAudioUrl(track.url);
+    setCurrentTrack({ ...track, url: trackUrl });
+    audio.src = trackUrl;
     audio.currentTime = 0;
     audio.play().catch(() => {});
     setIsPlaying(true);
-    sendMusicChangeTrack(track);
+    sendMusicChangeTrack({ ...track, url: trackUrl });
   };
 
   const changeVolume = (newVolume: number) => {
